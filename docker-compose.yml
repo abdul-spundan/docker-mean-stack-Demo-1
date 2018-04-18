@@ -1,0 +1,69 @@
+version: '3.1'
+
+services:
+
+  reverseproxy:
+    build:
+      context: ./proxy
+    container_name: proxy
+    ports:
+      - 8080:8080 # to access angular frontend
+      - 8081:8081 # to access node backend
+    restart: always
+    networks:
+      - back
+      - front
+  
+  mongo:
+    image: mongo
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    networks:
+      - back
+
+  node:
+    build:
+      context: ./node
+      args:
+        # environment: development/prod
+        - NODE_ENV=development
+    container_name: backend
+    # Overwritting the container command to use nodemon (instead of node) and listen for changes in the folder
+    command: ../node_modules/.bin/nodemon --inspect=0.0.0.0:9229
+    ports:
+      # No need to open this port if we access this container via the nginx proxy
+      - "3000:3000"
+      - "9229:9229"
+    volumes:
+      - ./node:/opt/app:delegated
+      # In order to avoid overwriting the container's node_modules folder with the host's dir we create this binding
+      - notused:/opt/app/node_modules
+    # Add environment variables if needed
+    environment:
+      - NAME=test
+    networks:
+      - back
+
+  angular:
+    build:
+      context: ./angular
+      args:
+        # environment: dev/prod
+        - NODE_ENV=prod
+    container_name: frontend
+    ports:
+      # No need to open this port if we access this container via the nginx proxy
+      - "4200:4200"
+    volumes:
+      - ./angular:/opt/app:delegated
+      # In order to avoid overwriting the container's node_modules folder with the host's dir we create this binding
+      - notused:/opt/app/node_modules
+    networks:
+      - front
+
+volumes:
+  notused:
+networks:
+  back:
+  front:
